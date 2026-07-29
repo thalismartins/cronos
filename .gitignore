@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+*.db
+
+# Environment
+.env
+config/collectors.yaml
+config/masters.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Project
+data/
+logs/
+*.log
+
+# Node
+node_modules/
+web/dist/

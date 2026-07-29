@@ -1,0 +1,17 @@
+# Cronos - Collector Configuration
+# Copy to config/collectors.yaml and fill in your values.
+
+global:
+  retention:
+    raw_data: 90d
+    rollups: 365d
+  cache_ttl_seconds: 60
+
+collectors:
+  - id: demo
+    enabled: true
+    schedule: "0 */6 * * *"
+    freshness_sla_hours: 8
+    config:
+      masters:
+        - alias: demo-master

@@ -1,0 +1,67 @@
+[project]
+name = "cronos"
+version = "0.1.0"
+description = "Plataforma generica de coleta programavel, dashboard de resiliencia e observabilidade."
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = { text = "MIT" }
+dependencies = [
+    "httpx>=0.27",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.7",
+    "python-dotenv>=1.0",
+    "tzdata>=2024.1",
+    "psycopg[binary]>=3.2",
+    "pyjwt>=2.8",
+    "argon2-cffi>=23.1",
+    "apscheduler>=3.10",
+    "pyyaml>=6.0",
+    "cachetools>=5.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "respx>=0.21",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "httpx>=0.27",
+]
+ldap = [
+    "ldap3>=2.9",
+]
+redis = [
+    "redis>=5.0",
+]
+
+[project.scripts]
+cronos-collect = "cronos.cli:collect"
+cronos-serve = "cronos.cli:serve"
+cronos-migrate = "cronos.cli:migrate"
+cronos-seed-demo = "cronos.cli:seed_demo"
+cronos-rollup = "cronos.cli:rollup"
+cronos-prune = "cronos.cli:prune"
+cronos-scheduler = "cronos.cli:scheduler"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"cronos.persistence" = [
+    "migrations/*.py",
+    "migrations/*.mako",
+    "migrations/versions/*.py",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
