@@ -99,46 +99,5 @@ async def _run_collector_job(
 
 
 def _persist_record(engine, record) -> None:
-    from cronos.persistence.repositories import (
-        insert_job,
-        upsert_asset,
-        upsert_disk_pool,
-    )
-
-    payload = record.payload
-    if record.category == "job":
-        insert_job(engine, {
-            "master_id": record.master_id,
-            "ext_id": record.ext_id,
-            "job_type": payload.get("job_type"),
-            "state": payload.get("state"),
-            "status_code": payload.get("status_code"),
-            "policy_name": payload.get("policy_name"),
-            "policy_type": payload.get("policy_type"),
-            "asset_ext_uuid": payload.get("asset_ext_uuid"),
-            "start_time": payload.get("start_time"),
-            "end_time": payload.get("end_time"),
-            "duration_seconds": payload.get("duration_seconds"),
-            "payload": payload,
-        })
-    elif record.category == "asset":
-        upsert_asset(engine, {
-            "master_id": record.master_id,
-            "ext_id": record.ext_id,
-            "ext_uuid": record.ext_id,
-            "name": payload.get("name"),
-            "type": payload.get("type"),
-            "os": payload.get("os"),
-            "payload": payload,
-        })
-    elif record.category == "disk_pool":
-        upsert_disk_pool(engine, {
-            "master_id": record.master_id,
-            "ext_id": record.ext_id,
-            "name": payload.get("name"),
-            "total_capacity_gb": payload.get("total_capacity_gb"),
-            "used_capacity_gb": payload.get("used_capacity_gb"),
-            "dedup_ratio": payload.get("dedup_ratio"),
-            "storage_category": payload.get("storage_category"),
-            "payload": payload,
-        })
+    from cronos.pipeline.router import route_record
+    route_record(engine, record)

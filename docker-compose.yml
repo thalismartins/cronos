@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: cronos
+      POSTGRES_PASSWORD: cronos
+      POSTGRES_DB: cronos
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready
+      interval: 10s
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      CRONOS_DB_PATH: postgresql+psycopg://cronos:cronos@db:5432/cronos
+      CRONOS_AUTH_SECRET: dev-secret-change-in-production-32chars
+      CRONOS_LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    command: sh -c "cronos-migrate && cronos-serve"
+
+volumes:
+  pgdata:

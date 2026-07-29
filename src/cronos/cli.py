@@ -16,6 +16,7 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("rollup", help="Build daily rollups")
     sub.add_parser("prune", help="Prune old data according to retention")
     sub.add_parser("scheduler", help="Start the background scheduler")
+    sub.add_parser("partition-create", help="Create future table partitions")
     return p
 
 
@@ -102,6 +103,17 @@ def scheduler(args: argparse.Namespace | None = None) -> None:
     run_scheduler()
 
 
+def partition_create(args: argparse.Namespace | None = None) -> None:
+    from cronos.logging_config import setup_logging
+    from cronos.persistence.db import get_engine
+    from cronos.persistence.partition import ensure_partitions
+
+    setup_logging(getattr(args, "log_level", "INFO") if args else "INFO")
+    engine = get_engine()
+    ensure_partitions(engine)
+    print("Partitions created.")
+
+
 def main() -> None:
     p = _parser()
     args = p.parse_args()
@@ -113,6 +125,7 @@ def main() -> None:
         "rollup": rollup,
         "prune": prune,
         "scheduler": scheduler,
+        "partition-create": partition_create,
     }
     fn = commands.get(args.command)
     if fn:
