@@ -16,5 +16,4 @@ def test_health():
 def test_root():
     resp = client.get("/")
     assert resp.status_code == 200
-    data = resp.json()
-    assert data["name"] == "Cronos"
+    assert "text/html" in resp.headers["content-type"]

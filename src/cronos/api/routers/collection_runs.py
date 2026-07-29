@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Query
 from sqlalchemy import text
 
@@ -25,4 +27,42 @@ async def list_collection_runs(
             """),
             {"limit": limit, "offset": offset},
         ).fetchall()
-        return [dict(r._mapping) for r in rows]
+        return {"data": [dict(r._mapping) for r in rows]}
+
+
+@router.get("/collection-runs/health")
+async def collection_health():
+    engine = get_readonly_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text("""
+                SELECT
+                    master_id,
+                    MAX(start_time) AS last_run_at,
+                    (SELECT status FROM collection_runs cr2
+                     WHERE cr2.master_id = collection_runs.master_id
+                     ORDER BY start_time DESC LIMIT 1) AS last_run_status,
+                    MAX(CASE WHEN status = 'success' THEN start_time END) AS last_success_at
+                FROM collection_runs
+                GROUP BY master_id
+            """)
+        ).mappings().fetchall()
+        data = []
+        for r in rows:
+            d = dict(r)
+            last = d.get("last_run_at")
+            lag = None
+            if last:
+                lag = int((datetime.now(UTC) - last).total_seconds())
+            is_stale = lag is not None and lag > 28800  # 8h
+            d["lag_seconds"] = lag
+            d["is_stale"] = is_stale
+            data.append(d)
+        return {
+            "stale_threshold_hours": 8,
+            "generated_at": datetime.now(UTC).isoformat(),
+            "total_masters": len(data),
+            "stale_masters": sum(1 for d in data if d["is_stale"]),
+            "last_run_failed_masters": sum(1 for d in data if d.get("last_run_status") == "failed"),
+            "data": data,
+        }

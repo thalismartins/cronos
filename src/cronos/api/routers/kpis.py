@@ -21,21 +21,38 @@ async def kpis_performance(master: str | None = Query(None)):
 async def kpis_storage(master: str | None = Query(None)):
     engine = get_readonly_engine()
     with engine.connect() as conn:
-        rows = conn.execute(
-            text("""
-                SELECT
-                    master_id,
-                    COUNT(*) AS pool_count,
-                    SUM(total_capacity_gb) AS total_capacity,
-                    SUM(used_capacity_gb) AS used_capacity,
-                    AVG(dedup_ratio) AS avg_dedup
-                FROM disk_pools
-                WHERE (:master IS NULL OR master_id = :master)
-                GROUP BY master_id
-            """),
-            {"master": master},
-        ).fetchall()
-        return [dict(r._mapping) for r in rows]
+        if master:
+            rows = conn.execute(
+                text("""
+                    SELECT
+                        master_id,
+                        COUNT(*) AS pool_count,
+                        COALESCE(SUM(total_capacity_gb), 0) AS total_capacity,
+                        COALESCE(SUM(used_capacity_gb), 0) AS used_capacity,
+                        COALESCE(AVG(dedup_ratio), 0) AS avg_dedup
+                    FROM disk_pools
+                    WHERE master_id = :master
+                    GROUP BY master_id
+                """),
+                {"master": master},
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                text("""
+                    SELECT
+                        master_id,
+                        COUNT(*) AS pool_count,
+                        COALESCE(SUM(total_capacity_gb), 0) AS total_capacity,
+                        COALESCE(SUM(used_capacity_gb), 0) AS used_capacity,
+                        COALESCE(AVG(dedup_ratio), 0) AS avg_dedup
+                    FROM disk_pools
+                    GROUP BY master_id
+                """),
+            ).fetchall()
+        result = [dict(r._mapping) for r in rows]
+        if not result:
+            return [{"master_id": master or "all", "pool_count": 0, "total_capacity": 0, "used_capacity": 0, "avg_dedup": 0}]
+        return result
 
 
 @router.get("/kpis/operations")

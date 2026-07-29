@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+
+# ruff: noqa: B008
 from pydantic import BaseModel
 
 from cronos.auth import (
@@ -8,19 +10,18 @@ from cronos.auth import (
     _check_rate_limit,
     _record_failed_attempt,
     create_token,
+    create_user_in_db,
     get_current_user,
+    get_user_from_db,
     hash_password,
+    is_account_locked,
+    record_login_failure,
+    update_user_login,
     verify_password,
 )
 from cronos.config import settings
 
-# ruff: noqa: B008
-
 router = APIRouter()
-
-# Simple user store (replace with DB in production)
-_users: dict[str, str] = {}
-_admins: set[str] = set()
 
 
 class LoginRequest(BaseModel):
@@ -43,11 +44,17 @@ class UserCreate(BaseModel):
 @router.post("/auth/login")
 async def login(req: LoginRequest) -> LoginResponse:
     _check_rate_limit(req.username)
-    hashed = _users.get(req.username)
-    if not hashed or not verify_password(req.password, hashed):
+    if is_account_locked(req.username):
+        raise HTTPException(status_code=423, detail="Account locked")
+    user = get_user_from_db(req.username)
+    if not user or not verify_password(req.password, user["password_hash"]):
         _record_failed_attempt(req.username)
+        record_login_failure(req.username)
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    role = "admin" if req.username in _admins else "operator"
+    if not user.get("is_active", True):
+        raise HTTPException(status_code=403, detail="Account disabled")
+    update_user_login(req.username)
+    role = user["role"]
     token = create_token(req.username, role)
     return LoginResponse(token=token, role=role, user=req.username)
 
@@ -56,11 +63,10 @@ async def login(req: LoginRequest) -> LoginResponse:
 async def setup_admin(req: UserCreate) -> dict:
     if not settings.cronos_auth_secret:
         raise HTTPException(status_code=400, detail="Set CRONOS_AUTH_SECRET first")
-    if _users:
-        raise HTTPException(status_code=400, detail="Already initialized")
-    _users[req.username] = hash_password(req.password)
-    if req.role == "admin":
-        _admins.add(req.username)
+    existing = get_user_from_db(req.username)
+    if existing:
+        raise HTTPException(status_code=400, detail="User already exists")
+    create_user_in_db(req.username, hash_password(req.password), req.role or "admin")
     return {"message": "Admin user created"}
 
 
@@ -71,9 +77,10 @@ async def create_user(
 ) -> dict:
     if current.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    _users[req.username] = hash_password(req.password)
-    if req.role == "admin":
-        _admins.add(req.username)
+    existing = get_user_from_db(req.username)
+    if existing:
+        raise HTTPException(status_code=400, detail="User already exists")
+    create_user_in_db(req.username, hash_password(req.password), req.role or "operator")
     return {"message": f"User {req.username} created"}
 
 

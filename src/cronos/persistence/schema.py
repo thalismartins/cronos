@@ -169,3 +169,18 @@ alerts = Table(
     Column("resolved_at", DateTime(timezone=True)),
     Column("created_at", DateTime(timezone=True), server_default=func.now()),
 )
+
+users_table = Table(
+    "users",
+    metadata,
+    Column("id", BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True),
+    Column("username", String(100), nullable=False, unique=True),
+    Column("password_hash", String(255), nullable=False),
+    Column("role", String(20), server_default="operator"),
+    Column("is_active", Integer, server_default="1"),
+    Column("last_login_at", DateTime(timezone=True)),
+    Column("failed_attempts", Integer, server_default="0"),
+    Column("locked_until", DateTime(timezone=True)),
+    Column("created_at", DateTime(timezone=True), server_default=func.now()),
+    Column("updated_at", DateTime(timezone=True), onupdate=func.now()),
+)
